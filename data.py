@@ -224,5 +224,35 @@ if __name__ == '__main__':
     data = get_songs_of_language(data, 'en')
     data = get_rap_songs(data)
     verses = get_verses(data)
+
     X, Y = create_base_dataset(verses)
     X = create_noised_samples(X)
+
+    D = list(zip(X, Y))
+    random.shuffle(D)
+
+    num_train_samples = math.floor(4 / 5 * len(D))
+    train_pairs = D[:num_train_samples]
+    test_pairs = D[num_train_samples:]
+
+    t = list(zip(*train_pairs))
+    train_x, train_y = list(t[0]), list(t[1])
+
+    t = list(zip(*test_pairs))
+    test_x, test_y = list(t[0]), list(t[1])
+
+    with open('data/lyrics_train_x.txt', 'w') as file:
+        s = '\n\n'.join(train_x)
+        file.write(s)
+
+    with open('data/lyrics_train_y.txt', 'w') as file:
+        s = '\n\n'.join(train_y)
+        file.write(s)
+
+    with open('data/lyrics_test_x.txt', 'w') as file:
+        s = '\n\n'.join(test_x)
+        file.write(s)
+
+    with open('data/lyrics_test_y.txt', 'w') as file:
+        s = '\n\n'.join(test_y)
+        file.write(s)
