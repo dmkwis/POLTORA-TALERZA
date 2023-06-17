@@ -62,7 +62,9 @@ def get_song_verses(song: str):
             else:
                 # if can't fit 4 lines then take the last 4
                 verse = lines[len(lines) - 4: len(lines)]
-
+            # skip broken verses
+            if '' in verse:
+                continue
             verses.append('\n'.join(verse))
     
     return verses
@@ -78,20 +80,21 @@ def get_verses(songs: List[str]):
 def create_base_dataset(verses: List[str]):
     Y = verses
     X = []
+    Ynew = []
 
     stop_words = set(stopwords.words('english'))
 
-    for i in range(len(Y)):
+    for i, y in enumerate(Y):
 
         if i % 1000 == 0:
             print(f'base dataset progress: {i} / {len(Y)}')
 
         # remove punctuation and convert to lowercase
-        Y[i] = Y[i].translate(str.maketrans('', '', string.punctuation))
-        Y[i] = Y[i].lower()
+        y = y.translate(str.maketrans('', '', string.punctuation))
+        y = y.lower()
 
         # tokenize
-        x = Y[i].split('\n')
+        x = y.split('\n')
         x = [word_tokenize(l) for l in x]
 
         # remove stop words and numbers (keep alpha)
@@ -100,11 +103,15 @@ def create_base_dataset(verses: List[str]):
 
         # convert back to str
         x = [' '.join(l) for l in x]
+        # skip useless content words
+        if '' in x:
+            continue
         x = '\n'.join(x)
 
         X.append(x)
+        Ynew.append(y)
     
-    return X, Y
+    return X, Ynew
 
 
 def verse_to_wordlist(verse: str): # list of words which can be put back to verse by investigating (line, pos) index
@@ -187,7 +194,6 @@ def noise_shuffle(verse: str):
 
 
 def create_noised_samples(X: List[str]):
-
     Xnew = []
 
     # iterate dataset and introduce one type of noise, each with probability 1 / 3 

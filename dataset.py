@@ -96,9 +96,8 @@ if __name__ == '__main__':
     w2i = get_word_to_int()
     x, y = get_data(train = True)
     dataset = LyricsDataset(w2i, x, y)
-    dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
 
+    # check iterate over dataloader
     for x, y in dataloader:
-        print(x)
-        print(y)
-        print()
+        pass
