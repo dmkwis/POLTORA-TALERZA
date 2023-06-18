@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import pytorch_lightning as pl
+from pytorch_lightning.loggers import WandbLogger
 
 from dataset import generate_dataset, get_vocab_size
 from model.config import ModelConfig
@@ -105,15 +106,18 @@ if __name__ == '__main__':
     print('Using args:', args)
 
     model = TrainingModule(**args)
+    logger = WandbLogger()
 
     if args['gpu']:
         trainer = pl.Trainer(
             max_epochs=args['epochs'],
+            logger=logger,
             accelerator='gpu',
             devices=1,
         )
     else:
         trainer = pl.Trainer(
+            logger=logger,
             max_epochs=args['epochs'],
         )
 
