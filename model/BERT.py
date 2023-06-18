@@ -1,24 +1,7 @@
-import torch
 import torch.nn as nn
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from dataclasses import dataclass
-import numpy as np
-
-class PositionalEncoding(nn.Module):
-    def __init__(self, hidden_size, max_length):
-        super(PositionalEncoding, self).__init__()
-
-        position = torch.arange(0, max_length).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, hidden_size, 2) * -(np.log(10000.0) / hidden_size))
-        pe = torch.zeros(max_length, hidden_size)
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        return x + self.pe
-    
+from pos_enc import PositionalEncoding
 
 @dataclass
 class BERTConfig:
@@ -40,11 +23,9 @@ class BERT(nn.Module):
 
         encoder_layers = TransformerEncoderLayer(config.hidden_size, config.num_heads, config.ff_dim, config.dropout, batch_first=True)
         self.transformer_encoder = TransformerEncoder(encoder_layers, config.num_layers)
-
-        self.fc = nn.Linear(config.hidden_size, config.hidden_size)
+        
+        self.fc = nn.Linear(config.hidden_size, config.vocab_size)
         self.activation = nn.Tanh()
-
-        self.dropout = nn.Dropout(config.dropout)
 
     def forward(self, input_ids, attention_mask):
         # Embedding and positional encoding
@@ -57,11 +38,8 @@ class BERT(nn.Module):
         # Pooling
         pooled = encoded.mean(dim=1)  # Take the mean across the sequence length
 
-        # Fully connected layer and activation
-        pooled = self.fc(pooled)
-        pooled = self.activation(pooled)
+        # Computing logits
+        logits = self.fc(pooled)
+        logits = self.activation(logits)
 
-        # Apply dropout
-        pooled = self.dropout(pooled)
-
-        return pooled
+        return logits
