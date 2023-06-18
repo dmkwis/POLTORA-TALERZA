@@ -1,5 +1,7 @@
 import time
+import random
 import argparse
+import numpy as np
 from typing import Dict
 
 import torch
@@ -71,8 +73,8 @@ def parse_arguments() -> Dict[str, int]:
                         help='initial learning rate')
     parser.add_argument('--seed', type=int, default=None,
                         help='random seed')
-    parser.add_argument('--cuda', action='store_true', default=False,
-                        help='use CUDA')
+    parser.add_argument('--gpu', action='store_true', default=False,
+                        help='use gpu')
     parser.add_argument('--save', type=str, default='model.pt',
                         help='path to save the final model')
 
@@ -81,19 +83,39 @@ def parse_arguments() -> Dict[str, int]:
     return args
 
 
+def set_seed(seed: int):
+    print('Setting seed to:', seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    # torch.cuda.manual_seed_all(seed)
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
+
+
 if __name__ == '__main__':
     args = parse_arguments()
+
+    if args['seed'] is not None:
+        set_seed(args['seed'])
+
     # TODO
     args['vocab_size'] = get_vocab_size()
     args['max_seq_length'] = 568
     print('Using args:', args)
 
     model = TrainingModule(**args)
-    trainer = pl.Trainer(
-        max_epochs=args['epochs'],
-        # accelerator='gpu',
-        # devices=1,
-    )
+
+    if args['gpu']:
+        trainer = pl.Trainer(
+            max_epochs=args['epochs'],
+            accelerator='gpu',
+            devices=1,
+        )
+    else:
+        trainer = pl.Trainer(
+            max_epochs=args['epochs'],
+        )
 
     # train_dataloader, test_dataloader = generate_dataset()
     train_dataloader = generate_dataset(args['batch_size'])
