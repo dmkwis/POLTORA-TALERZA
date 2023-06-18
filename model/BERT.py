@@ -8,7 +8,7 @@ class BERTConfig:
     vocab_size: int
     hidden_size: int
     num_layers: int
-    num_heads: int  
+    num_heads: int
     ff_dim: int
     dropout: float
     max_seq_length: int
@@ -23,10 +23,9 @@ class BERT(nn.Module):
 
         encoder_layers = TransformerEncoderLayer(config.hidden_size, config.num_heads, config.ff_dim, config.dropout, batch_first=True)
         self.transformer_encoder = TransformerEncoder(encoder_layers, config.num_layers)
-
+        
         self.fc = nn.Linear(config.hidden_size, config.vocab_size)
         self.activation = nn.Tanh()
-
 
     def forward(self, input_ids, attention_mask):
         # Embedding and positional encoding
@@ -44,4 +43,3 @@ class BERT(nn.Module):
         logits = self.activation(logits)
 
         return logits
-
