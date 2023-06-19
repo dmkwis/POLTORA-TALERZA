@@ -106,7 +106,12 @@ if __name__ == '__main__':
     print('Using args:', args)
 
     model = TrainingModule(**args)
-    logger = WandbLogger()
+    logger = WandbLogger(
+        project='poltora-talerza',
+        name='Train_run_' + str(time.strftime("%H:%M:%S_%d/%m", time.localtime())),
+        log_model='all',
+    )
+    logger.watch(model)
 
     if args['gpu']:
         trainer = pl.Trainer(
