@@ -8,7 +8,7 @@ import torch.optim as optim
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 
-from dataset import generate_dataset, get_vocab_size
+import dataset
 from model.config import ModelConfig
 from model.transformer import TransformerEncoderDecoder
 
@@ -30,7 +30,7 @@ class TrainingModule(pl.LightningModule):
         self.transformer = TransformerEncoderDecoder(config)
         self.loss_fn = nn.CrossEntropyLoss()
 
-    def training_step(self, batch, batch_idx: int):
+    def step(self, batch, batch_idx: int, mode='train'):
         x, y = batch
 
         y_input = y[:, :-1]
@@ -47,12 +47,15 @@ class TrainingModule(pl.LightningModule):
 
         output_flat = output.view(-1, output.shape[-1])
         loss = self.loss_fn(output_flat, y_expected.reshape(-1))
-        self.log('loss', loss, prog_bar=True)
+        self.log('loss_' + mode, loss, prog_bar=True)
 
         return loss
 
+    def training_step(self, batch, batch_idx: int):
+        return self.step(batch, batch_idx)
+
     def validation_step(self, batch, batch_idx: int):
-        pass
+        return self.step(batch, batch_idx, 'valid')
 
     def configure_optimizers(self):
         optimizer = optim.Adam(
@@ -90,6 +93,8 @@ def parse_arguments() -> Dict[str, Union[int, str, float, bool]]:
                         help='use gpu')
     parser.add_argument('--wandb', action='store_true', default=False,
                         help='use Wandb')
+    parser.add_argument('--workers', type=int, default=1,
+                        help='number of workers for dataset')
     parser.add_argument('--save', type=str, default='model.pt',
                         help='path to save the final model')
 
@@ -111,9 +116,26 @@ if __name__ == '__main__':
     if args['seed'] is not None:
         set_seed(args['seed'], args['gpu'])
 
-    # TODO
-    args['vocab_size'] = get_vocab_size()
-    args['max_seq_length'] = 568
+    w2i = dataset.get_word_to_int()
+    train_x, train_y = dataset.get_data(train=True)
+    train_dataset = dataset.LyricsDataset(w2i, train_x, train_y)
+    train_dataloader = dataset.DataLoader(
+        train_dataset,
+        batch_size=args['batch_size'],
+        num_workers=args['workers'],
+        shuffle=True,
+    )
+
+    test_x, test_y = dataset.get_data(train=False)
+    test_dataset = dataset.LyricsDataset(w2i, test_x, test_y)
+    test_dataloader = dataset.DataLoader(
+        test_dataset,
+        batch_size=args['batch_size'],
+        num_workers=args['workers'],
+    )
+
+    args['vocab_size'] = len(w2i)
+    args['max_seq_length'] = max(train_dataset.block_size, test_dataset.block_size)
     print('Using args:', args)
 
     model = TrainingModule(**args)
@@ -141,12 +163,8 @@ if __name__ == '__main__':
             max_epochs=args['epochs'],
         )
 
-    # train_dataloader, test_dataloader = generate_dataset()
-    train_dataloader = generate_dataset(args['batch_size'])
-    print('Generated dataset')
-
     trainer.fit(
         model,
         train_dataloader,
-        # test_dataloader,
+        test_dataloader,
     )

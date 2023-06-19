@@ -33,7 +33,7 @@ class LyricsDataset(Dataset):
         y = [START_TOKEN] + self.y[index] + [END_TOKEN]
 
         x.extend([PAD_TOKEN] * (self.block_size - len(x)))
-        y.extend([PAD_TOKEN] * (self.block_size - len(y)))
+        y.extend([PAD_TOKEN] * (self.block_size - len(y) + 1))
 
         x = torch.tensor([self.w2i[w] for w in x], dtype=torch.long)
         y = torch.tensor([self.w2i[w] for w in y], dtype=torch.long)
