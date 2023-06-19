@@ -35,3 +35,7 @@ and to train model with chosen params run:
 ```bash
 python train.py [params]
 ```
+alternatively use training script to easily change previously used parameters
+```bash
+./run_train.sh
+```
