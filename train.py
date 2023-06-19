@@ -1,13 +1,10 @@
 import time
-import random
 import argparse
-import numpy as np
-from typing import Dict
+from typing import Dict, Union
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 
@@ -31,13 +28,28 @@ class TrainingModule(pl.LightningModule):
             self.hparams.max_seq_length,
         )
         self.transformer = TransformerEncoderDecoder(config)
+        self.loss_fn = nn.CrossEntropyLoss()
 
     def training_step(self, batch, batch_idx: int):
         x, y = batch
 
-        output = self.transformer(x, y)
+        y_input = y[:, :-1]
+        y_expected = y[:, 1:]
 
-        return output
+        # Returns [batch_size, max_seq_len, vocab_size] representing logits for each word in vocab at each position
+        output = self.transformer(
+            x,
+            y_input,
+            tgt_mask=nn.Transformer.generate_square_subsequent_mask(y_input.shape[-1], self.device),
+            # src_key_padding_mask=None,
+            # tgt_key_padding_mask=None,
+        )
+
+        output_flat = output.view(-1, output.shape[-1])
+        loss = self.loss_fn(output_flat, y_expected.reshape(-1))
+        self.log('loss', loss, prog_bar=True)
+
+        return loss
 
     def validation_step(self, batch, batch_idx: int):
         pass
@@ -51,7 +63,7 @@ class TrainingModule(pl.LightningModule):
         return optimizer
 
 
-def parse_arguments() -> Dict[str, int]:
+def parse_arguments() -> Dict[str, Union[int, str, float, bool]]:
     parser = argparse.ArgumentParser()
     # Model params
     parser.add_argument('--hidden_size', type=int, default=2,
@@ -76,6 +88,8 @@ def parse_arguments() -> Dict[str, int]:
                         help='random seed')
     parser.add_argument('--gpu', action='store_true', default=False,
                         help='use gpu')
+    parser.add_argument('--wandb', action='store_true', default=False,
+                        help='use Wandb')
     parser.add_argument('--save', type=str, default='model.pt',
                         help='path to save the final model')
 
@@ -84,21 +98,18 @@ def parse_arguments() -> Dict[str, int]:
     return args
 
 
-def set_seed(seed: int):
-    print('Setting seed to:', seed)
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    # torch.cuda.manual_seed_all(seed)
-    # torch.backends.cudnn.deterministic = True
-    # torch.backends.cudnn.benchmark = False
+def set_seed(seed: int, gpu: bool):
+    pl.seed_everything(seed)
+    if gpu:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 
 if __name__ == '__main__':
     args = parse_arguments()
 
     if args['seed'] is not None:
-        set_seed(args['seed'])
+        set_seed(args['seed'], args['gpu'])
 
     # TODO
     args['vocab_size'] = get_vocab_size()
@@ -106,12 +117,16 @@ if __name__ == '__main__':
     print('Using args:', args)
 
     model = TrainingModule(**args)
-    logger = WandbLogger(
-        project='poltora-talerza',
-        name='Train_run_' + str(time.strftime("%H:%M:%S_%d/%m", time.localtime())),
-        log_model='all',
-    )
-    logger.watch(model)
+
+    if args['wandb']:
+        logger = WandbLogger(
+            project='poltora-talerza',
+            name='Train_run_' + str(time.strftime("%H:%M:%S_%d/%m", time.localtime())),
+            log_model='all',
+        )
+        logger.watch(model)
+    else:
+        logger = None
 
     if args['gpu']:
         trainer = pl.Trainer(
