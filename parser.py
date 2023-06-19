@@ -29,10 +29,10 @@ def parse_arguments() -> Dict[str, Union[int, str, float, bool]]:
                         help='use gpu')
     parser.add_argument('--wandb', action='store_true', default=False,
                         help='use Wandb')
+    parser.add_argument('--save', action='store_true', default=False,
+                        help='whether to save models in checkpoints directory')
     parser.add_argument('--workers', type=int, default=1,
                         help='number of workers for dataset')
-    parser.add_argument('--save', type=str, default='model.pt',
-                        help='path to save the final model')
 
     args = parser.parse_args()
     args = vars(args)

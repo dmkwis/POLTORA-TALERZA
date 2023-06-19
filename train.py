@@ -73,6 +73,8 @@ def set_seed(seed: int, gpu: bool):
 
 
 if __name__ == '__main__':
+    run_id = str(time.strftime("%H:%M:%S_%d_%m", time.localtime()))
+    print('Starting run:', run_id)
     args = parse_arguments()
 
     if args['seed'] is not None:
@@ -105,25 +107,32 @@ if __name__ == '__main__':
     if args['wandb']:
         logger = WandbLogger(
             project='poltora-talerza',
-            name='Train_run_' + str(time.strftime("%H:%M:%S_%d/%m", time.localtime())),
+            name='Train_run_' + run_id,
             log_model='all',
         )
         logger.watch(model)
     else:
         logger = None
 
+    trainer_kwargs = {
+        'max_epochs': args['epochs'],
+        'logger': logger,
+    }
+
     if args['gpu']:
-        trainer = pl.Trainer(
-            max_epochs=args['epochs'],
-            logger=logger,
-            accelerator='gpu',
-            devices=1,
+        trainer_kwargs['accelerator'] = 'gpu'
+        trainer_kwargs['devices'] = 1
+
+    if args['save']:
+        checkpoint_callback = pl.callbacks.ModelCheckpoint(
+            dirpath='checkpoints/run_' + run_id,
+            filename='{epoch}-{loss_train:.2f}-{loss_valid:.2f}',
+            save_last=True,
+            every_n_epochs=1,
         )
-    else:
-        trainer = pl.Trainer(
-            logger=logger,
-            max_epochs=args['epochs'],
-        )
+        trainer_kwargs['callbacks'] = checkpoint_callback
+
+    trainer = pl.Trainer(**trainer_kwargs)
 
     trainer.fit(
         model,
