@@ -13,3 +13,25 @@ We use the [dataset from Kaggle](https://www.kaggle.com/datasets/neisse/scrapped
 python3 data.py
 ```
 This will create 4 files: `lyrics_[train|test]_[x|y].txt` in the `data/` folder.
+
+## Training
+
+### Wandb
+To use Wandb
+```bash
+pip install wandb
+
+wandb login
+```
+and paste your API key.
+
+### Training script
+Running `train.py` utilizes params, to check available run: 
+```bash
+python train.py --help
+```
+
+and to train model with chosen params run:
+```bash
+python train.py [params]
+```
