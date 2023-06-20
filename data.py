@@ -20,6 +20,11 @@ def get_songs_of_language(df_lyrics: pd.DataFrame, language: str):
     return df_lyrics[df_lyrics['language'] == language]
 
 
+def get_all_songs(df: pd.DataFrame):
+    df.dropna(inplace=True)
+    return df['Lyric'].tolist()
+
+
 def get_rap_songs(df: pd.DataFrame):
     df.dropna(inplace=True)
     df = df[
@@ -201,7 +206,7 @@ def create_noised_samples(X: List[str]):
 
         # print progress per each 1000 samples
         if i % 1000 == 0:
-            print(f'noising progress: {i} / {len(X)}', i)
+            print(f'noising progress: {i} / {len(X)}')
 
         action = random.randint(0, 2)
 
@@ -222,43 +227,41 @@ def create_noised_samples(X: List[str]):
     return Xnew
 
 
-if __name__ == '__main__':
-    nltk.download('stopwords')
-    nltk.download('wordnet')
-
-    data = read_data()
-    data = get_songs_of_language(data, 'en')
-    data = get_rap_songs(data)
-    verses = get_verses(data)
-
+def create_data_files(verses: List[str], name: str):
     X, Y = create_base_dataset(verses)
     X = create_noised_samples(X)
 
     D = list(zip(X, Y))
     random.shuffle(D)
 
-    num_train_samples = math.floor(4 / 5 * len(D))
-    train_pairs = D[:num_train_samples]
-    test_pairs = D[num_train_samples:]
+    d = list(zip(*D))
+    data_x, data_y = list(d[0]), list(d[1])
 
-    t = list(zip(*train_pairs))
-    train_x, train_y = list(t[0]), list(t[1])
-
-    t = list(zip(*test_pairs))
-    test_x, test_y = list(t[0]), list(t[1])
-
-    with open('data/lyrics_train_x.txt', 'w') as file:
-        s = '\n\n'.join(train_x)
+    with open(f'data/{name}_x.txt', 'w') as file:
+        s = '\n\n'.join(data_x)
         file.write(s)
 
-    with open('data/lyrics_train_y.txt', 'w') as file:
-        s = '\n\n'.join(train_y)
+    with open(f'data/{name}_y.txt', 'w') as file:
+        s = '\n\n'.join(data_y)
         file.write(s)
 
-    with open('data/lyrics_test_x.txt', 'w') as file:
-        s = '\n\n'.join(test_x)
-        file.write(s)
 
-    with open('data/lyrics_test_y.txt', 'w') as file:
-        s = '\n\n'.join(test_y)
-        file.write(s)
+if __name__ == '__main__':
+    nltk.download('stopwords')
+    nltk.download('wordnet')
+
+    # create pretrain dataset
+    data = read_data()
+    data = get_songs_of_language(data, 'en')
+    data = get_all_songs(data)
+    verses = get_verses(data)
+
+    create_data_files(verses, 'pretrain')
+
+    # create finetune dataset
+    data = read_data()
+    data = get_songs_of_language(data, 'en')
+    data = get_rap_songs(data)
+    verses = get_verses(data)
+
+    create_data_files(verses, 'finetune')
