@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 
 import dataset
-from parser import parse_arguments
+from parse import parse_arguments
 from model.config import ModelConfig
 from model.transformer import TransformerEncoderDecoder
 
@@ -80,9 +80,8 @@ if __name__ == '__main__':
     if args['seed'] is not None:
         set_seed(args['seed'], args['gpu'])
 
-    w2i = dataset.get_word_to_int()
-    train_x, train_y = dataset.get_data(train=True)
-    train_dataset = dataset.LyricsDataset(w2i, train_x, train_y)
+    dataset_provider = dataset.LyricsDatasetProvider()
+    train_dataset = dataset_provider.get_dataset('pretrain', training=True)
     train_dataloader = dataset.DataLoader(
         train_dataset,
         batch_size=args['batch_size'],
@@ -90,15 +89,14 @@ if __name__ == '__main__':
         shuffle=True,
     )
 
-    test_x, test_y = dataset.get_data(train=False)
-    test_dataset = dataset.LyricsDataset(w2i, test_x, test_y)
+    test_dataset = dataset_provider.get_dataset('pretrain', training=False)
     test_dataloader = dataset.DataLoader(
         test_dataset,
         batch_size=args['batch_size'],
         num_workers=args['workers'],
     )
 
-    args['vocab_size'] = len(w2i)
+    args['vocab_size'] = len(dataset.w2i)
     args['max_seq_length'] = max(train_dataset.block_size, test_dataset.block_size)
     print('Using args:', args)
 

@@ -12,7 +12,7 @@ We use the [dataset from Kaggle](https://www.kaggle.com/datasets/neisse/scrapped
 ```bash
 python3 data.py
 ```
-This will create 4 files: `lyrics_[train|test]_[x|y].txt` in the `data/` folder.
+This will create 4 files: `pretrain_[x|y].txt` and `finetune_[x|y]` in the `data/` folder. After this step the datasets are available by using `LyricsDatasetProvider` and `LyricsDataset` from `dataset.py`.
 
 ## Training
 

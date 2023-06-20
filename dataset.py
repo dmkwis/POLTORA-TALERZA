@@ -2,26 +2,31 @@ from typing import Dict, List, Tuple
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 import torch
+import random
+import math
 
 
 data_files = {
-    'train_x': 'lyrics_train_x.txt',
-    'train_y': 'lyrics_train_y.txt',
-    'test_x': 'lyrics_test_x.txt',
-    'test_y': 'lyrics_test_y.txt',
+    'pretrain_x': 'pretrain_x.txt',
+    'pretrain_y': 'pretrain_y.txt',
+    'finetune_x': 'finetune_x.txt',
+    'finetune_y': 'finetune_y.txt',
 }
 
 START_TOKEN = '<START>'
 END_TOKEN = '<END>'
 PAD_TOKEN = '<PAD>'
+NEWLINE_TOKEN = '\n'
+
+# global variables
+w2i = None
 
 
 class LyricsDataset(Dataset):
-    def __init__(self, word_to_int: Dict[str, int], x: List[List[str]], y: List[List[str]]) -> None:
+    def __init__(self, x: List[List[str]], y: List[List[str]]) -> None:
         super().__init__()
         self.x = x
         self.y = y
-        self.w2i = word_to_int
         self.block_size = max([len(v) + 2 for v in x]) # + 2 for start, end tokens
         self.block_size = max(self.block_size, max([len(v) + 2 for v in y]))
     
@@ -35,48 +40,68 @@ class LyricsDataset(Dataset):
         x.extend([PAD_TOKEN] * (self.block_size - len(x)))
         y.extend([PAD_TOKEN] * (self.block_size - len(y) + 1))
 
-        x = torch.tensor([self.w2i[w] for w in x], dtype=torch.long)
-        y = torch.tensor([self.w2i[w] for w in y], dtype=torch.long)
+        x = torch.tensor([w2i[w] for w in x], dtype=torch.long)
+        y = torch.tensor([w2i[w] for w in y], dtype=torch.long)
 
         return x, y
 
 
-def get_all_words() -> List[str]:
-    words = []
+class LyricsDatasetProvider:
+    def __init__(self, train_frac: float = 0.8) -> None:
+        assert train_frac >= 0.0 and train_frac <= 1.0        
+        self.train_frac = train_frac
+        global w2i
 
-    for _, filename in data_files.items():
-        with open(f'data/{filename}') as file:
-            s = file.read()
-            s = s.replace('\n\n', ' ')
-            s = s.replace('\n', ' ')
-            s_words = s.split(' ')
-            words.extend(s_words)
+        if w2i is None:
+            pretrain_x, pretrain_y = get_data('pretrain')
+            finetune_x, finetune_y = get_data('finetune')
+            words = get_all_words([pretrain_x, pretrain_y, finetune_x, finetune_y])
+            w2i = get_word_to_int(words)
+            # free up the memory
+            del pretrain_x
+            del pretrain_y
+            del finetune_x
+            del finetune_y
+
+    def get_dataset(self, name: str, training: bool = True):
+        assert name in ['pretrain', 'finetune']
+        set_x, set_y = get_data(name)
+        num = math.floor(self.train_frac * len(set_y))
+
+        if training:
+            x = set_x[:num]
+            y = set_y[:num]
+        else:
+            x = set_x[num:]
+            y = set_y[num:]
+
+        return LyricsDataset(x, y)
+
+
+def get_all_words(data: List[List[List[str]]]) -> List[str]:
+    words = []
+    for part in data:
+        for verse in part:
+            words.extend(verse)
 
     words = sorted(list(set(words))) # sort to always get the same output
-
     # include start, end, pad tokens as words
     # include newline as we want the model to use it to separate lines in verse
-    words = [PAD_TOKEN, START_TOKEN, END_TOKEN, '\n'] + words
-
+    words = [PAD_TOKEN, START_TOKEN, END_TOKEN, NEWLINE_TOKEN] + words
     return words
 
 
-def get_word_to_int() -> Dict[str, int]:
-    words = get_all_words()
+def get_word_to_int(words) -> Dict[str, int]:
     word_to_int = {}
-    
     for i, w in enumerate(words):
-        word_to_int[w] = i
-    
+        word_to_int[w] = i    
     return word_to_int
 
 
-def get_data(train: bool = True) -> Tuple[List[List[str]], List[List[str]]]:
-    file_x, file_y = ('train_x', 'train_y') if train else ('test_x', 'test_y')
-
-    with open(f"data/{data_files[file_x]}") as file:
+def get_data(name: str) -> Tuple[List[List[str]], List[List[str]]]:
+    with open(f"data/{name}_x.txt") as file:
         x = file.read()
-    with open(f"data/{data_files[file_y]}") as file:
+    with open(f"data/{name}_y.txt") as file:
         y = file.read()
 
     x = x.split('\n\n')
@@ -93,11 +118,33 @@ def get_data(train: bool = True) -> Tuple[List[List[str]], List[List[str]]]:
 
 
 if __name__ == '__main__':
-    w2i = get_word_to_int()
-    x, y = get_data(train = True)
-    dataset = LyricsDataset(w2i, x, y)
-    dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
 
+    dataset_provider = LyricsDatasetProvider()
+
+    print('pretrain train')    
+    dataset = dataset_provider.get_dataset('pretrain', training=True)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
+    # check iterate over dataloader
+    for x, y in dataloader:
+        pass
+
+    print('pretrain test')    
+    dataset = dataset_provider.get_dataset('pretrain', training=False)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
+    # check iterate over dataloader
+    for x, y in dataloader:
+        pass
+
+    print('finetune train')    
+    dataset = dataset_provider.get_dataset('finetune', training=True)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
+    # check iterate over dataloader
+    for x, y in dataloader:
+        pass
+
+    print('finetune test')    
+    dataset = dataset_provider.get_dataset('finetune', training=False)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
     # check iterate over dataloader
     for x, y in dataloader:
         pass
