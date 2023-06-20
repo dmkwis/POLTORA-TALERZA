@@ -7,6 +7,8 @@ import string
 import random
 import math
 
+MAX_VERSE_LEN = 64
+
 
 def read_data():
     df_artists = pd.read_csv('data/artists-data.csv')
@@ -20,8 +22,12 @@ def get_songs_of_language(df_lyrics: pd.DataFrame, language: str):
     return df_lyrics[df_lyrics['language'] == language]
 
 
-def get_all_songs(df: pd.DataFrame):
+def get_other_songs(df: pd.DataFrame):
     df.dropna(inplace=True)
+    df = df[
+        (~df['Genres'].str.contains('Hip Hop')) &
+        (~df['Genres'].str.contains('Rap'))
+    ]
     return df['Lyric'].tolist()
 
 
@@ -37,7 +43,7 @@ def get_rap_songs(df: pd.DataFrame):
 def line_meaningless(line: str): # used to check if line denotes song fragment like verse / chorus
     if line.startswith('[') and line.endswith(']'):
         return True
-    if 'Verse' in line or 'Chorus' in line:
+    if 'Verse' in line or 'Chorus' in line or 'verse' in line or 'chorus' in line:
         return True
     if line.endswith(':'):
         return True
@@ -105,6 +111,12 @@ def create_base_dataset(verses: List[str]):
         # remove stop words and numbers (keep alpha)
         x = [[w for w in l if not w in stop_words] for l in x]
         x = [[w for w in l if w.isalpha()] for l in x]
+
+        # skip too long verses
+        lens = [len(l) for l in x]
+        total_len = sum(lens)
+        if total_len > MAX_VERSE_LEN:
+            continue
 
         # convert back to str
         x = [' '.join(l) for l in x]
@@ -250,18 +262,16 @@ if __name__ == '__main__':
     nltk.download('stopwords')
     nltk.download('wordnet')
 
-    # create pretrain dataset
+    # create pretrain dataset (all but rap)
     data = read_data()
     data = get_songs_of_language(data, 'en')
-    data = get_all_songs(data)
+    data = get_other_songs(data)
     verses = get_verses(data)
-
     create_data_files(verses, 'pretrain')
 
-    # create finetune dataset
+    # create finetune dataset (rap)
     data = read_data()
     data = get_songs_of_language(data, 'en')
     data = get_rap_songs(data)
     verses = get_verses(data)
-
     create_data_files(verses, 'finetune')

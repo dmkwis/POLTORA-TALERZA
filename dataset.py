@@ -16,14 +16,17 @@ data_files = {
 START_TOKEN = '<START>'
 END_TOKEN = '<END>'
 PAD_TOKEN = '<PAD>'
+NEWLINE_TOKEN = '\n'
+
+# global variables
+w2i = None
 
 
 class LyricsDataset(Dataset):
-    def __init__(self, word_to_int: Dict[str, int], x: List[List[str]], y: List[List[str]]) -> None:
+    def __init__(self, x: List[List[str]], y: List[List[str]]) -> None:
         super().__init__()
         self.x = x
         self.y = y
-        self.w2i = word_to_int
         self.block_size = max([len(v) + 2 for v in x]) # + 2 for start, end tokens
         self.block_size = max(self.block_size, max([len(v) + 2 for v in y]))
     
@@ -37,100 +40,61 @@ class LyricsDataset(Dataset):
         x.extend([PAD_TOKEN] * (self.block_size - len(x)))
         y.extend([PAD_TOKEN] * (self.block_size - len(y) + 1))
 
-        x = torch.tensor([self.w2i[w] for w in x], dtype=torch.long)
-        y = torch.tensor([self.w2i[w] for w in y], dtype=torch.long)
+        x = torch.tensor([w2i[w] for w in x], dtype=torch.long)
+        y = torch.tensor([w2i[w] for w in y], dtype=torch.long)
 
         return x, y
 
 
 class LyricsDatasetProvider:
-    def __init__(self, shuffle: bool = True, pretrain_frac: float = 1.0, train_frac: float = 0.8) -> None:
-        # choose pretrain frac below 1.0 to only use part of dataset for pretraining
-        assert pretrain_frac >= 0.0 and pretrain_frac <= 1.0
-        assert train_frac >= 0.0 and train_frac <= 1.0
-        
+    def __init__(self, train_frac: float = 0.8) -> None:
+        assert train_frac >= 0.0 and train_frac <= 1.0        
         self.train_frac = train_frac
+        global w2i
 
-        print('loading pretrain')
-        self.pretrain_x, self.pretrain_y = get_data('pretrain')
-        print('loading finetune')
-        self.finetune_x, self.finetune_y = get_data('finetune')
+        if w2i is None:
+            pretrain_x, pretrain_y = get_data('pretrain')
+            finetune_x, finetune_y = get_data('finetune')
+            words = get_all_words([pretrain_x, pretrain_y, finetune_x, finetune_y])
+            w2i = get_word_to_int(words)
+            # free up the memory
+            del pretrain_x
+            del pretrain_y
+            del finetune_x
+            del finetune_y
 
-        if shuffle:
-            a = zip(self.pretrain_x, self.pretrain_y)
-            random.shuffle(a)
-            b = list(zip(*a))
-            self.pretrain_x, self.pretrain_y = list(b[0]), list(b[1])
+    def get_dataset(self, name: str, training: bool = True):
+        assert name in ['pretrain', 'finetune']
+        set_x, set_y = get_data(name)
+        num = math.floor(self.train_frac * len(set_y))
 
-            a = zip(self.finetune_x, self.finetune_y)
-            random.shuffle(a)
-            b = list(zip(*a))
-            self.finetune_x, self.finetune_y = list(b[0]), list(b[1])
+        if training:
+            x = set_x[:num]
+            y = set_y[:num]
+        else:
+            x = set_x[num:]
+            y = set_y[num:]
 
-        # optionally shrink the pretrain dataset
-        if pretrain_frac < 1.0:
-            num_pretrain = math.floor(pretrain_frac * len(self.pretrain_y))
-            a = zip(self.pretrain_x, self.pretrain_y)
-            a = a[:num_pretrain]
-            b = list(zip(*a))
-            self.pretrain_x, self.pretrain_y = list(b[0]), list(b[1])
-
-        self.words = get_all_words([
-            self.pretrain_x,
-            self.pretrain_y,
-            self.finetune_x,
-            self.finetune_y,
-        ])
-        self. w2i = get_word_to_int(self.words)
-
-    def get_pretrain_train(self):
-        num = math.floor(self.train_frac * len(self.pretrain_y))
-        x = self.pretrain_x[:num]
-        y = self.pretrain_y[:num]
-        return LyricsDataset(self.w2i, x, y)
-    
-    def get_pretrain_test(self):
-        num = math.floor(self.train_frac * len(self.pretrain_y))
-        x = self.pretrain_x[num:]
-        y = self.pretrain_y[num:]
-        return LyricsDataset(self.w2i, x, y)
-
-    def get_finetune_train(self):
-        num = math.floor(self.train_frac * len(self.finetune_y))
-        x = self.finetune_x[:num]
-        y = self.finetune_y[:num]
-        return LyricsDataset(self.w2i, x, y)
-
-    def get_finetune_test(self):
-        num = math.floor(self.train_frac * len(self.finetune_y))
-        x = self.finetune_x[num:]
-        y = self.finetune_y[num:]
-        return LyricsDataset(self.w2i, x, y)
+        return LyricsDataset(x, y)
 
 
 def get_all_words(data: List[List[List[str]]]) -> List[str]:
     words = []
-
     for part in data:
         for verse in part:
             words.extend(verse)
-            words = list(set(words))
 
     words = sorted(list(set(words))) # sort to always get the same output
-
     # include start, end, pad tokens as words
     # include newline as we want the model to use it to separate lines in verse
-    words = [PAD_TOKEN, START_TOKEN, END_TOKEN, '\n'] + words
-
+    words = [PAD_TOKEN, START_TOKEN, END_TOKEN, NEWLINE_TOKEN] + words
     return words
 
 
 def get_word_to_int(words) -> Dict[str, int]:
     word_to_int = {}
-    
     for i, w in enumerate(words):
-        word_to_int[w] = i
-    
+        word_to_int[w] = i    
     return word_to_int
 
 
@@ -158,29 +122,29 @@ if __name__ == '__main__':
     dataset_provider = LyricsDatasetProvider()
 
     print('pretrain train')    
-    dataset = dataset_provider.get_pretrain_train()
-    dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+    dataset = dataset_provider.get_dataset('pretrain', training=True)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
     # check iterate over dataloader
     for x, y in dataloader:
         pass
 
     print('pretrain test')    
-    dataset = dataset_provider.get_pretrain_test()
-    dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+    dataset = dataset_provider.get_dataset('pretrain', training=False)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
     # check iterate over dataloader
     for x, y in dataloader:
         pass
 
     print('finetune train')    
-    dataset = dataset_provider.get_finetune_train()
-    dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+    dataset = dataset_provider.get_dataset('finetune', training=True)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
     # check iterate over dataloader
     for x, y in dataloader:
         pass
 
     print('finetune test')    
-    dataset = dataset_provider.get_finetune_test()
-    dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+    dataset = dataset_provider.get_dataset('finetune', training=False)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
     # check iterate over dataloader
     for x, y in dataloader:
         pass
