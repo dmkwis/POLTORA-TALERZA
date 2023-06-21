@@ -42,25 +42,28 @@ def translate_output(transformer_outputs: List[torch.Tensor]) -> str:
 class LyricsDataset(Dataset):
     def __init__(self, x: List[List[str]], y: List[List[str]]) -> None:
         super().__init__()
-        self.x = x
-        self.y = y
         self.block_size = max([len(v) + 2 for v in x]) # + 2 for start, end tokens
         self.block_size = max(self.block_size, max([len(v) + 2 for v in y]))
+        self.x = torch.tensor([
+            [w2i[START_TOKEN]] + 
+            [w2i[w] for w in verse] + 
+            [w2i[END_TOKEN]] + 
+            (self.block_size - len(verse) - 2) * [w2i[PAD_TOKEN]]
+            for verse in x
+        ])
+        self.y = torch.tensor([
+            [w2i[START_TOKEN]] + 
+            [w2i[w] for w in verse] + 
+            [w2i[END_TOKEN]] + 
+            (self.block_size - len(verse) - 2) * [w2i[PAD_TOKEN]]
+            for verse in y
+        ])
     
     def __len__(self):
         return len(self.x)
     
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        x = [START_TOKEN] + self.x[index] + [END_TOKEN]
-        y = [START_TOKEN] + self.y[index] + [END_TOKEN]
-
-        x.extend([PAD_TOKEN] * (self.block_size - len(x)))
-        y.extend([PAD_TOKEN] * (self.block_size - len(y) + 1))
-
-        x = torch.tensor([w2i[w] for w in x], dtype=torch.long)
-        y = torch.tensor([w2i[w] for w in y], dtype=torch.long)
-
-        return x, y
+        return self.x[index], self.y[index]
 
 
 class LyricsDatasetProvider:
