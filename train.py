@@ -81,7 +81,7 @@ if __name__ == '__main__':
         set_seed(args['seed'], args['gpu'])
 
     dataset_provider = dataset.LyricsDatasetProvider()
-    train_dataset = dataset_provider.get_dataset('pretrain', training=True)
+    train_dataset = dataset_provider.get_dataset('finetune', training=True)
     train_dataloader = dataset.DataLoader(
         train_dataset,
         batch_size=args['batch_size'],
@@ -89,15 +89,33 @@ if __name__ == '__main__':
         shuffle=True,
     )
 
-    test_dataset = dataset_provider.get_dataset('pretrain', training=False)
+    test_dataset = dataset_provider.get_dataset('finetune', training=False)
     test_dataloader = dataset.DataLoader(
         test_dataset,
         batch_size=args['batch_size'],
         num_workers=args['workers'],
     )
+    max_seq_length = max(train_dataset.block_size, test_dataset.block_size)
+
+    if args['pretrain']:
+        pretrain_dataset = dataset_provider.get_dataset('pretrain', training=True)
+        pretrain_dataloader = dataset.DataLoader(
+            pretrain_dataset,
+            batch_size=args['batch_size'],
+            num_workers=args['workers'],
+            shuffle=True,
+        )
+
+        pretest_dataset = dataset_provider.get_dataset('pretrain', training=False)
+        pretest_dataloader = dataset.DataLoader(
+            pretest_dataset,
+            batch_size=args['batch_size'],
+            num_workers=args['workers'],
+        )
+        max_seq_length = max(max_seq_length, pretrain_dataset.block_size, pretest_dataset.block_size)
 
     args['vocab_size'] = len(dataset.w2i)
-    args['max_seq_length'] = max(train_dataset.block_size, test_dataset.block_size)
+    args['max_seq_length'] = max_seq_length
     print('Using args:', args)
 
     model = TrainingModule(**args)
@@ -132,6 +150,15 @@ if __name__ == '__main__':
 
     trainer = pl.Trainer(**trainer_kwargs)
 
+    if args['pretrain']:
+        print('Pretraining model')
+        trainer.fit(
+            model,
+            pretrain_dataloader,
+            pretest_dataloader,
+        )
+
+    print('Training model')
     trainer.fit(
         model,
         train_dataloader,

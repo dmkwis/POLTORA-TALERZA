@@ -2,6 +2,7 @@ import pandas as pd
 import nltk
 from nltk.corpus import stopwords, wordnet
 from nltk.tokenize import word_tokenize
+from tqdm import tqdm
 from typing import List, Tuple
 import string
 import random
@@ -95,11 +96,7 @@ def create_base_dataset(verses: List[str]):
 
     stop_words = set(stopwords.words('english'))
 
-    for i, y in enumerate(Y):
-
-        if i % 1000 == 0:
-            print(f'base dataset progress: {i} / {len(Y)}')
-
+    for i, y in enumerate(tqdm(Y, 'Base dataset')):
         # remove punctuation and convert to lowercase
         y = y.translate(str.maketrans('', '', string.punctuation))
         y = y.lower()
@@ -214,12 +211,7 @@ def create_noised_samples(X: List[str]):
     Xnew = []
 
     # iterate dataset and introduce one type of noise, each with probability 1 / 3 
-    for i, x in enumerate(X):
-
-        # print progress per each 1000 samples
-        if i % 1000 == 0:
-            print(f'noising progress: {i} / {len(X)}')
-
+    for i, x in enumerate(tqdm(X, 'Noising')):
         action = random.randint(0, 2)
 
         # shuffle

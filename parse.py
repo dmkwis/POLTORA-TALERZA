@@ -31,6 +31,8 @@ def parse_arguments() -> Dict[str, Union[int, str, float, bool]]:
                         help='use Wandb')
     parser.add_argument('--save', action='store_true', default=False,
                         help='whether to save models in checkpoints directory')
+    parser.add_argument('--pretrain', action='store_true', default=False,
+                        help='pretrain model before training on rap dataset')
     parser.add_argument('--workers', type=int, default=1,
                         help='number of workers for dataset')
 
