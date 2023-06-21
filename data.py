@@ -261,6 +261,7 @@ def create_data_files(verses: List[str], name: str):
 if __name__ == '__main__':
     nltk.download('stopwords')
     nltk.download('wordnet')
+    nltk.download('punkt')
 
     # create pretrain dataset (all but rap)
     data = read_data()

@@ -4,6 +4,7 @@ from torch.utils.data.dataloader import DataLoader
 import torch
 import random
 import math
+import numpy as np
 
 
 data_files = {
@@ -20,6 +21,23 @@ NEWLINE_TOKEN = '\n'
 
 # global variables
 w2i = None
+i2w = None
+
+
+# take the sequence of outputs from the transformer and convert it into a sentence
+# assumes w2i was already computed
+def translate_output(transformer_outputs: List[torch.Tensor]) -> str:
+    global w2i
+    global i2w
+    if w2i is None or i2w is None:
+        fill_w2i()
+    result = ''
+    for output in transformer_outputs:
+        i = np.argmax(output)
+        word = i2w[i.item()]
+        if word != START_TOKEN and word != END_TOKEN and word != PAD_TOKEN:
+            result += word + ' '
+    return result
 
 
 class LyricsDataset(Dataset):
@@ -53,15 +71,7 @@ class LyricsDatasetProvider:
         global w2i
 
         if w2i is None:
-            pretrain_x, pretrain_y = get_data('pretrain')
-            finetune_x, finetune_y = get_data('finetune')
-            words = get_all_words([pretrain_x, pretrain_y, finetune_x, finetune_y])
-            w2i = get_word_to_int(words)
-            # free up the memory
-            del pretrain_x
-            del pretrain_y
-            del finetune_x
-            del finetune_y
+            fill_w2i()
 
     def get_dataset(self, name: str, training: bool = True):
         assert name in ['pretrain', 'finetune']
@@ -76,6 +86,27 @@ class LyricsDatasetProvider:
             y = set_y[num:]
 
         return LyricsDataset(x, y)
+
+
+def fill_w2i():
+    # w2i
+    global w2i
+    pretrain_x, pretrain_y = get_data('pretrain')
+    finetune_x, finetune_y = get_data('finetune')
+    words = get_all_words([pretrain_x, pretrain_y, finetune_x, finetune_y])
+    w2i = get_word_to_int(words)
+
+    # free up the memory
+    del pretrain_x
+    del pretrain_y
+    del finetune_x
+    del finetune_y
+
+    # i2w
+    global i2w
+    i2w = {}
+    for key, val in w2i.items():
+        i2w[val] = key
 
 
 def get_all_words(data: List[List[List[str]]]) -> List[str]:
@@ -118,6 +149,12 @@ def get_data(name: str) -> Tuple[List[List[str]], List[List[str]]]:
 
 
 if __name__ == '__main__':
+
+    fill_w2i()
+    a = torch.rand(len(w2i))
+    b = torch.rand(len(w2i))
+    output = translate_output([a, b])
+    print(output)
 
     dataset_provider = LyricsDatasetProvider()
 
