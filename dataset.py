@@ -4,7 +4,6 @@ from torch.utils.data.dataloader import DataLoader
 import torch
 import random
 import math
-import numpy as np
 
 
 data_files = {
@@ -33,7 +32,7 @@ def translate_output(transformer_outputs: List[torch.Tensor]) -> str:
         fill_w2i()
     result = ''
     for output in transformer_outputs:
-        i = np.argmax(output)
+        i = torch.argmax(output)
         word = i2w[i.item()]
         if word != START_TOKEN and word != END_TOKEN and word != PAD_TOKEN:
             result += word + ' '
@@ -89,18 +88,19 @@ class LyricsDatasetProvider:
 
 
 def fill_w2i():
+    # words
+    pretrain_x, pretrain_y = get_data('pretrain')
+    words = get_all_words(pretrain_x)
+    words = list(set(words + get_all_words(pretrain_y)))
+    finetune_x, finetune_y = get_data('finetune')
+    words = list(set(words + get_all_words(finetune_x)))
+    words = list(set(words + get_all_words(finetune_y)))
+    words = sorted(words)
+    words = extend_words(words)
+
     # w2i
     global w2i
-    pretrain_x, pretrain_y = get_data('pretrain')
-    finetune_x, finetune_y = get_data('finetune')
-    words = get_all_words([pretrain_x, pretrain_y, finetune_x, finetune_y])
     w2i = get_word_to_int(words)
-
-    # free up the memory
-    del pretrain_x
-    del pretrain_y
-    del finetune_x
-    del finetune_y
 
     # i2w
     global i2w
@@ -109,13 +109,15 @@ def fill_w2i():
         i2w[val] = key
 
 
-def get_all_words(data: List[List[List[str]]]) -> List[str]:
+def get_all_words(data: List[List[str]]) -> List[str]:
     words = []
-    for part in data:
-        for verse in part:
-            words.extend(verse)
+    for verse in data:
+        words.extend(verse)
+    del data # free up the memory
+    return list(set(words))
 
-    words = sorted(list(set(words))) # sort to always get the same output
+
+def extend_words(words: List[str]):
     # include start, end, pad tokens as words
     # include newline as we want the model to use it to separate lines in verse
     words = [PAD_TOKEN, START_TOKEN, END_TOKEN, NEWLINE_TOKEN] + words
