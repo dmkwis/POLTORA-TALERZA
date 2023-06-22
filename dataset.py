@@ -62,7 +62,7 @@ class LyricsDatasetProvider:
         self.train_frac = train_frac
         global w2i
 
-        if w2i is None:
+        if len(w2i) == 0:
             fill_w2i()
 
     def get_dataset(self, name: str, training: bool = True):
@@ -81,47 +81,28 @@ class LyricsDatasetProvider:
 
 
 def fill_w2i():
-    # words
-    pretrain_x, pretrain_y = get_data('pretrain')
-    words = get_all_words(pretrain_x)
-    words = list(set(words + get_all_words(pretrain_y)))
-    finetune_x, finetune_y = get_data('finetune')
-    words = list(set(words + get_all_words(finetune_x)))
-    words = list(set(words + get_all_words(finetune_y)))
-    words = sorted(words)
-    words = extend_words(words)
-
-    # w2i
     global w2i
-    w2i = get_word_to_int(words)
-
-    # i2w
     global i2w
-    i2w = {}
-    for key, val in w2i.items():
-        i2w[val] = key
 
+    pretrain_x, pretrain_y = get_data('pretrain')
+    fill_w2i_part(pretrain_x)
+    fill_w2i_part(pretrain_y)
+    finetune_x, finetune_y = get_data('finetune')
+    fill_w2i_part(finetune_x)
+    fill_w2i_part(finetune_y)
+    words = sorted(list(w2i.keys()) + [PAD_TOKEN, START_TOKEN, END_TOKEN, NEWLINE_TOKEN])
 
-def get_all_words(data: List[List[str]]) -> List[str]:
-    words = []
-    for verse in data:
-        words.extend(verse)
-    del data # free up the memory
-    return list(set(words))
-
-
-def extend_words(words: List[str]):
-    # include start, end, pad tokens as words
-    # include newline as we want the model to use it to separate lines in verse
-    words = [PAD_TOKEN, START_TOKEN, END_TOKEN, NEWLINE_TOKEN] + words
-    return words
-
-
-def get_word_to_int(words) -> Dict[str, int]:
-    word_to_int = {}
     for i, w in enumerate(words):
-        word_to_int[w] = i    
-    return word_to_int
+        w2i[w] = i
+        i2w[i] = 2
+
+
+def fill_w2i_part(data: List[List[str]]) -> List[str]:
+    global w2i
+    for verse in data:
+        for w in verse:
+            w2i[w] = 0
+    del data # free up the memory
 
 
 def get_data(name: str) -> Tuple[List[List[str]], List[List[str]]]:
