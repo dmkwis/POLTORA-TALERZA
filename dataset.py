@@ -90,11 +90,11 @@ def fill_w2i():
     finetune_x, finetune_y = get_data('finetune')
     fill_w2i_part(finetune_x)
     fill_w2i_part(finetune_y)
-    words = sorted(list(w2i.keys()) + [PAD_TOKEN, START_TOKEN, END_TOKEN, NEWLINE_TOKEN])
+    words = sorted(list(w2i.keys()) + [PAD_TOKEN, START_TOKEN, END_TOKEN])
 
     for i, w in enumerate(words):
         w2i[w] = i
-        i2w[i] = 2
+        i2w[i] = w
 
 
 def fill_w2i_part(data: List[List[str]]) -> List[str]:
