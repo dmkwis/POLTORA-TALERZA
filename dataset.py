@@ -6,21 +6,14 @@ import random
 import math
 
 
-data_files = {
-    'pretrain_x': 'pretrain_x.txt',
-    'pretrain_y': 'pretrain_y.txt',
-    'finetune_x': 'finetune_x.txt',
-    'finetune_y': 'finetune_y.txt',
-}
-
 START_TOKEN = '<START>'
 END_TOKEN = '<END>'
 PAD_TOKEN = '<PAD>'
 NEWLINE_TOKEN = '\n'
 
 # global variables
-w2i = None
-i2w = None
+w2i = {}
+i2w = {}
 
 
 # take the sequence of outputs from the transformer and convert it into a sentence
@@ -28,7 +21,7 @@ i2w = None
 def translate_output(transformer_outputs: List[torch.Tensor]) -> str:
     global w2i
     global i2w
-    if w2i is None or i2w is None:
+    if len(w2i) == 0:
         fill_w2i()
     result = ''
     for output in transformer_outputs:
