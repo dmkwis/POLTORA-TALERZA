@@ -14,6 +14,12 @@ python3 data.py
 ```
 This will create 4 files: `pretrain_[x|y].txt` and `finetune_[x|y]` in the `data/` folder. After this step the datasets are available by using `LyricsDatasetProvider` and `LyricsDataset` from `dataset.py`.
 
+After that run the following to reduce dataset sizes and the number of distinct tokens.
+```bash
+python3 filter.py
+```
+This will override the `pretrain_[x|y]` and `finetune_[x|y]` files.
+
 ## Training
 
 ### Wandb

@@ -8,7 +8,8 @@ import string
 import random
 import math
 
-MAX_VERSE_LEN = 64
+MIN_VERSE_LEN = 8
+MAX_VERSE_LEN = 46
 
 
 def read_data():
@@ -78,7 +79,7 @@ def get_song_verses(song: str):
             if '' in verse:
                 continue
             verses.append('\n'.join(verse))
-    
+
     return verses
 
 
@@ -86,6 +87,7 @@ def get_verses(songs: List[str]):
     verses = []
     for song in songs:
         verses.extend(get_song_verses(song))
+    verses = list(set(verses)) # rm duplicates
     return verses
 
 
@@ -109,10 +111,10 @@ def create_base_dataset(verses: List[str]):
         x = [[w for w in l if not w in stop_words] for l in x]
         x = [[w for w in l if w.isalpha()] for l in x]
 
-        # skip too long verses
+        # skip too long or too short verses
         lens = [len(l) for l in x]
         total_len = sum(lens)
-        if total_len > MAX_VERSE_LEN:
+        if total_len > MAX_VERSE_LEN or total_len < MIN_VERSE_LEN:
             continue
 
         # convert back to str
@@ -120,6 +122,7 @@ def create_base_dataset(verses: List[str]):
         # skip useless content words
         if '' in x:
             continue
+
         x = '\n'.join(x)
 
         X.append(x)
@@ -167,7 +170,7 @@ def noise_synonyms(verse: str):
         if len(syns) == 0:
             continue
 
-        synonym = syns[random.randint(0, len(syns) - 1)]
+        synonym = syns[random.randint(0, min(4, len(syns) - 1))]
         words[k] = synonym, i, j
         altered += 1
         if altered >= to_alter:
@@ -251,8 +254,10 @@ def create_data_files(verses: List[str], name: str):
 
 
 if __name__ == '__main__':
+    random.seed(5)
     nltk.download('stopwords')
     nltk.download('wordnet')
+    nltk.download('punkt')
 
     # create pretrain dataset (all but rap)
     data = read_data()

@@ -6,20 +6,30 @@ import random
 import math
 
 
-data_files = {
-    'pretrain_x': 'pretrain_x.txt',
-    'pretrain_y': 'pretrain_y.txt',
-    'finetune_x': 'finetune_x.txt',
-    'finetune_y': 'finetune_y.txt',
-}
-
 START_TOKEN = '<START>'
 END_TOKEN = '<END>'
 PAD_TOKEN = '<PAD>'
 NEWLINE_TOKEN = '\n'
 
 # global variables
-w2i = None
+w2i = {}
+i2w = {}
+
+
+# take the sequence of outputs from the transformer and convert it into a sentence
+# assumes w2i was already computed
+def translate_output(transformer_outputs: List[torch.Tensor]) -> str:
+    global w2i
+    global i2w
+    if len(w2i) == 0:
+        fill_w2i()
+    result = ''
+    for output in transformer_outputs:
+        i = torch.argmax(output)
+        word = i2w[i.item()]
+        if word != START_TOKEN and word != END_TOKEN and word != PAD_TOKEN:
+            result += word + ' '
+    return result
 
 
 class LyricsDataset(Dataset):
@@ -52,16 +62,8 @@ class LyricsDatasetProvider:
         self.train_frac = train_frac
         global w2i
 
-        if w2i is None:
-            pretrain_x, pretrain_y = get_data('pretrain')
-            finetune_x, finetune_y = get_data('finetune')
-            words = get_all_words([pretrain_x, pretrain_y, finetune_x, finetune_y])
-            w2i = get_word_to_int(words)
-            # free up the memory
-            del pretrain_x
-            del pretrain_y
-            del finetune_x
-            del finetune_y
+        if len(w2i) == 0:
+            fill_w2i()
 
     def get_dataset(self, name: str, training: bool = True):
         assert name in ['pretrain', 'finetune']
@@ -78,24 +80,29 @@ class LyricsDatasetProvider:
         return LyricsDataset(x, y)
 
 
-def get_all_words(data: List[List[List[str]]]) -> List[str]:
-    words = []
-    for part in data:
-        for verse in part:
-            words.extend(verse)
+def fill_w2i():
+    global w2i
+    global i2w
 
-    words = sorted(list(set(words))) # sort to always get the same output
-    # include start, end, pad tokens as words
-    # include newline as we want the model to use it to separate lines in verse
-    words = [PAD_TOKEN, START_TOKEN, END_TOKEN, NEWLINE_TOKEN] + words
-    return words
+    pretrain_x, pretrain_y = get_data('pretrain')
+    fill_w2i_part(pretrain_x)
+    fill_w2i_part(pretrain_y)
+    finetune_x, finetune_y = get_data('finetune')
+    fill_w2i_part(finetune_x)
+    fill_w2i_part(finetune_y)
+    words = sorted(list(w2i.keys()) + [PAD_TOKEN, START_TOKEN, END_TOKEN, NEWLINE_TOKEN])
 
-
-def get_word_to_int(words) -> Dict[str, int]:
-    word_to_int = {}
     for i, w in enumerate(words):
-        word_to_int[w] = i    
-    return word_to_int
+        w2i[w] = i
+        i2w[i] = 2
+
+
+def fill_w2i_part(data: List[List[str]]) -> List[str]:
+    global w2i
+    for verse in data:
+        for w in verse:
+            w2i[w] = 0
+    del data # free up the memory
 
 
 def get_data(name: str) -> Tuple[List[List[str]], List[List[str]]]:
@@ -118,6 +125,13 @@ def get_data(name: str) -> Tuple[List[List[str]], List[List[str]]]:
 
 
 if __name__ == '__main__':
+
+    fill_w2i()
+    print(len(w2i))
+    a = torch.rand(len(w2i))
+    b = torch.rand(len(w2i))
+    output = translate_output([a, b])
+    print(output)
 
     dataset_provider = LyricsDatasetProvider()
 
