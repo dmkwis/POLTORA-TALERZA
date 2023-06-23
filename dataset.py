@@ -17,7 +17,6 @@ i2w = {}
 
 
 # take the sequence of outputs from the transformer and convert it into a sentence
-# assumes w2i was already computed
 def translate_output(transformer_outputs: List[torch.Tensor]) -> str:
     global w2i
     global i2w

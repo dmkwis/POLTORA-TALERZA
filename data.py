@@ -8,7 +8,7 @@ import string
 import random
 import math
 
-MIN_VERSE_LEN = 8
+MIN_VERSE_LEN = 12
 MAX_VERSE_LEN = 46
 
 
@@ -170,7 +170,7 @@ def noise_synonyms(verse: str):
         if len(syns) == 0:
             continue
 
-        synonym = syns[random.randint(0, min(4, len(syns) - 1))]
+        synonym = syns[random.randint(0, min(2, len(syns) - 1))]
         words[k] = synonym, i, j
         altered += 1
         if altered >= to_alter:
