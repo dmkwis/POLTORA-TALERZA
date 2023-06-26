@@ -22,7 +22,9 @@ class RhymeData:
 
         self.indexed_tokens = tokenizer.encode(self.sentence, add_special_tokens=True)
 
-    def prepare_tensors(self) -> Tuple[torch.Tensor, torch.Tensor]:
+        self.prepare_tensors()
+
+    def prepare_tensors(self):
         segments_ids = []
         mask_idxs = []
         separators_found = 0
@@ -33,7 +35,8 @@ class RhymeData:
             elif token == self.tokenizer.mask_token_id:
                 mask_idxs.append(i)
 
-        return mask_idxs, torch.tensor(segments_ids)
+        self.mask_idxs = mask_idxs
+        self.segments_tensors = torch.tensor(segments_ids)
 
 
 class RhymeEnhancer:
@@ -48,51 +51,63 @@ class RhymeEnhancer:
             print(f'Calculating rhyme length of word \'{a}\' and \'{b}\'')
             return random.random()
 
-        # src_word = self.tokenizer.convert_ids_to_tokens(indexed_tokens[mask_idx])
         rl_original = rhyme_length(src_word, tgt_word)
 
         tokens_tensor = torch.tensor([indexed_tokens])
-        print(tokens_tensor)
         # predictions = self.bert(tokens_tensor, token_type_ids=segments_tensors).logits
         predictions = self.bert(tokens_tensor).logits
 
         topk = torch.topk(predictions[0][mask_idx], K, dim=-1).indices
-        print(topk)
 
         predictions = self.tokenizer.convert_ids_to_tokens(topk)
 
         for pred in predictions:
             rl_new = rhyme_length(pred, tgt_word)
-            # if rl_new > rl_original:
-            #     return pred, rl_new
+            if rl_new > rl_original:
+                return pred, rl_new
 
         return src_word, rl_original
 
     @torch.no_grad()
     def enhance(self, sentence: str, K: int = 200, rhyme: str = 'abab') -> str:
         assert rhyme in ('abab', 'abba')
+
         lines = sentence.split('\n')
         assert len(lines) == 4
         words = [line.split() for line in lines]
 
-        rhyme_data_first = RhymeData(words, (0, 2), self.tokenizer)
-        # rhyme_data_second = RhymeData(words, (2, 0), self.tokenizer)
+        rhyme_data_first = RhymeData(words, (0, 2) if rhyme == 'abab' else (1, 3), self.tokenizer)
+        rhyme_data_second = RhymeData(words, (2, 0) if rhyme == 'abab' else (3, 1), self.tokenizer)
 
-        indexed_tokens = self.tokenizer.encode(rhyme_data_first.sentence, add_special_tokens=True)
-        print(indexed_tokens)
-        # debug print
-        print()
-        for token in indexed_tokens:
-            print(token, self.tokenizer.convert_ids_to_tokens(token))
-        print()
+        rhyme_data_first.prepare_tensors()
+        rhyme_data_second.prepare_tensors()
 
-        mask_idxs, segments_tensors = rhyme_data_first.prepare_tensors()
+        first_word, rl_first = self.find_match(
+            rhyme_data_first.indexed_tokens,
+            K,
+            rhyme_data_first.mask_idxs[0],
+            rhyme_data_first.src,
+            rhyme_data_first.tgt,
+            rhyme_data_first.segments_tensors,
+        )
 
-        first_word, rl_first = self.find_match(indexed_tokens, K, mask_idxs[0], rhyme_data_first.src,
-                                               rhyme_data_first.tgt, segments_tensors)
-        # self.find_match(indexed_tokens, K, separator_idxs[1] - 1, separator_idxs[0] - 1)
+        second_word, rl_second = self.find_match(
+            rhyme_data_second.indexed_tokens,
+            K,
+            rhyme_data_second.mask_idxs[0],
+            rhyme_data_second.src,
+            rhyme_data_second.tgt,
+            rhyme_data_second.segments_tensors,
+        )
 
-        return first_word
+        if rl_first > rl_second:
+            words[0 if rhyme == 'abab' else 1][-1] = first_word
+        else:
+            words[2 if rhyme == 'abab' else 3][-1] = second_word
+
+        lines = [' '.join(words[i]) for i in range(4)]
+        sentence = '\n'.join(lines)
+        return sentence
 
 
 if __name__ == '__main__':
