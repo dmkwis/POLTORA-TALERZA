@@ -7,6 +7,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 
 import dataset
+from dataset import w2i, PAD_TOKEN
 from parse import parse_arguments
 from model.config import ModelConfig
 from model.transformer import TransformerEncoderDecoder
@@ -40,8 +41,8 @@ class TrainingModule(pl.LightningModule):
             x,
             y_input,
             tgt_mask=nn.Transformer.generate_square_subsequent_mask(y_input.shape[-1], self.device),
-            # src_key_padding_mask=None,
-            # tgt_key_padding_mask=None,
+            src_key_padding_mask=(x == w2i[PAD_TOKEN]),
+            tgt_key_padding_mask=(y_input == w2i[PAD_TOKEN]),
         )
 
         output_flat = output.view(-1, output.shape[-1])
@@ -157,6 +158,8 @@ if __name__ == '__main__':
             pretrain_dataloader,
             pretest_dataloader,
         )
+
+    trainer = pl.Trainer(**trainer_kwargs)
 
     print('Training model')
     trainer.fit(

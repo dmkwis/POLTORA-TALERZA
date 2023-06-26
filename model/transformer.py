@@ -1,4 +1,5 @@
 import torch.nn as nn
+from dataset import w2i, PAD_TOKEN
 
 from model.pos_enc import PositionalEncoding
 from model.config import ModelConfig
@@ -7,7 +8,7 @@ from model.config import ModelConfig
 class TransformerEncoderDecoder(nn.Module):
     def __init__(self, config: ModelConfig):
         super(TransformerEncoderDecoder, self).__init__()
-        self.embedding = nn.Embedding(config.vocab_size, config.hidden_size)  # TODO padding_idx
+        self.embedding = nn.Embedding(config.vocab_size, config.hidden_size, w2i[PAD_TOKEN])
         self.hidden_size = config.hidden_size
         self.pos_encoder = PositionalEncoding(config.hidden_size, config.max_seq_length)
         self.pos_decoder = PositionalEncoding(config.hidden_size, config.max_seq_length)
