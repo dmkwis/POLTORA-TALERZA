@@ -29,7 +29,8 @@ class RhymeData:
         mask_idxs = []
         separators_found = 0
         for i, token in enumerate(self.indexed_tokens):
-            segments_ids.append(separators_found)
+            # Only 0 or 1
+            segments_ids.append(separators_found // 2)
             if token == self.tokenizer.sep_token_id:
                 separators_found += 1
             elif token == self.tokenizer.mask_token_id:
@@ -54,8 +55,7 @@ class RhymeEnhancer:
         rl_original = rhyme_length(src_word, tgt_word)
 
         tokens_tensor = torch.tensor([indexed_tokens])
-        # predictions = self.bert(tokens_tensor, token_type_ids=segments_tensors).logits
-        predictions = self.bert(tokens_tensor).logits
+        predictions = self.bert(tokens_tensor, token_type_ids=segments_tensors).logits
 
         topk = torch.topk(predictions[0][mask_idx], K, dim=-1).indices
 
@@ -69,15 +69,17 @@ class RhymeEnhancer:
         return src_word, rl_original
 
     @torch.no_grad()
-    def enhance(self, sentence: str, K: int = 200, rhyme: str = 'abab') -> str:
-        assert rhyme in ('abab', 'abba')
+    def enhance(self, sentence: str, K: int = 200, idxs: Tuple[int, int] = (0, 2)) -> str:
+        # Enhances sentence which is 4 lines separated by \n by rhymes
+        # Tests K best bert suggestion and chooses first one with higher rhyme metric than original
+        # idxs represents which lines should rhyme
 
         lines = sentence.split('\n')
         assert len(lines) == 4
         words = [line.split() for line in lines]
 
-        rhyme_data_first = RhymeData(words, (0, 2) if rhyme == 'abab' else (1, 3), self.tokenizer)
-        rhyme_data_second = RhymeData(words, (2, 0) if rhyme == 'abab' else (3, 1), self.tokenizer)
+        rhyme_data_first = RhymeData(words, idxs, self.tokenizer)
+        rhyme_data_second = RhymeData(words, tuple(reversed(idxs)), self.tokenizer)
 
         rhyme_data_first.prepare_tensors()
         rhyme_data_second.prepare_tensors()
@@ -101,9 +103,9 @@ class RhymeEnhancer:
         )
 
         if rl_first > rl_second:
-            words[0 if rhyme == 'abab' else 1][-1] = first_word
+            words[idxs[0]][-1] = first_word
         else:
-            words[2 if rhyme == 'abab' else 3][-1] = second_word
+            words[idxs[1]][-1] = second_word
 
         lines = [' '.join(words[i]) for i in range(4)]
         sentence = '\n'.join(lines)
@@ -120,6 +122,6 @@ i be fucked up with you'''
     print('Before:')
     print(example)
 
-    example = enhancer.enhance(example, 50)
+    example = enhancer.enhance(example, 50, (0, 3))
     print('After:')
     print(example)
