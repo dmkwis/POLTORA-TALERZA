@@ -2,6 +2,7 @@ import torch
 import random
 from copy import deepcopy
 from typing import List, Tuple
+from metrics.rhymedensitymetric import RhymeDensityMetric
 
 
 class RhymeData:
@@ -47,10 +48,9 @@ class RhymeEnhancer:
 
     def find_match(self, indexed_tokens: List[int], K: int, mask_idx: int, src_word: str, tgt_word: str,
                    segments_tensors: torch.Tensor) -> Tuple[str, float]:
-        # TODO replace with actual rhyme metric
+        
         def rhyme_length(a: str, b: str) -> float:
-            print(f'Calculating rhyme length of word \'{a}\' and \'{b}\'')
-            return random.random()
+            return RhymeDensityMetric.compute_rhyme_length(a, b)
 
         rl_original = rhyme_length(src_word, tgt_word)
 

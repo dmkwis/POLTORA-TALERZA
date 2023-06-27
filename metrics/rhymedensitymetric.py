@@ -49,16 +49,32 @@ class RhymeDensityMetric(AbstractMetric):
             return reduce(max, found_lengths)
         return 0
 
+    @staticmethod
+    def compute_ipa_representation(word: str,
+            tmp_in_file="tmp_in.txt",
+            tmp_out_file="tmp_out.txt"):
+        ipa = RhymeDensityMetric.generate_ipa(word, tmp_in_file, tmp_out_file)
+        os.system(f'rm {tmp_in_file} {tmp_out_file}')
+        return RhymeDensityMetric.process_ipa(ipa)
+    
+
+    @staticmethod
+    def compute_rhyme_length(w1: str, w2: str):
+        tmp_in_file="tmp_in.txt",
+        tmp_out_file="tmp_out.txt"
+        ipa_w1 = RhymeDensityMetric.generate_ipa(w1, tmp_in_file, tmp_out_file)
+        ipa_w2 = RhymeDensityMetric.generate_ipa(w2, tmp_in_file, tmp_out_file)
+        os.system(f'rm {tmp_in_file} {tmp_out_file}')
+        return RhymeDensityMetric.calculate_ipa_rhyme_length(ipa_w1, ipa_w2)
+
+    
 
     def compute(prompt_text: List[str], generated_text: List[str]) -> float:
         assert prompt_text is None, "Metric used only on generated text"
-        tmp_in_file="tmp_in.txt"
-        tmp_out_file="tmp_out.txt"
         processed_ipas = []
         for word in generated_text:
-            ipa = RhymeDensityMetric.generate_ipa(word, tmp_in_file, tmp_out_file)
-            processed_ipa = RhymeDensityMetric.process_ipa(ipa)
-            processed_ipas.append(processed_ipa)
+            ipa = RhymeDensityMetric.compute_ipa_representation(word)
+            processed_ipas.append(ipa)
         #print(processed_ipas)
         rhyme_lens = []
         for idx, word in enumerate(processed_ipas):
@@ -67,7 +83,6 @@ class RhymeDensityMetric(AbstractMetric):
             rhyme_len = max(RhymeDensityMetric.calculate_ipa_rhyme_length(word, left_words),
                             RhymeDensityMetric.calculate_ipa_rhyme_length(word, right_words))
             rhyme_lens.append(rhyme_len)
-        os.system(f'rm {tmp_in_file} {tmp_out_file}')
 
         #print(rhyme_lens)
 
