@@ -1,4 +1,5 @@
 import dataset
+import random
 
 FINETUNE_SIZE = 100000
 PRETRAIN_SIZE = 300000
@@ -37,6 +38,7 @@ def filter_rare(data_x, data_y, word_cnt, data_size):
     new_data = list(zip(*data_with_scores))
     new_data = list(new_data[0])
     new_data = new_data[(-data_size):]
+    random.shuffle(new_data)
     new_data = list(zip(*new_data))
     new_data_x, new_data_y = list(new_data[0]), list(new_data[1])
 

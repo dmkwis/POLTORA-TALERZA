@@ -119,7 +119,10 @@ if __name__ == '__main__':
     args['max_seq_length'] = max_seq_length
     print('Using args:', args)
 
-    model = TrainingModule(**args)
+    if args['pretrain']:
+        model = TrainingModule(**args)
+    else:
+        model = TrainingModule.load_from_checkpoint(checkpoint_path=args['load_path'])
 
     if args['wandb']:
         logger = WandbLogger(
@@ -144,8 +147,8 @@ if __name__ == '__main__':
         checkpoint_callback = pl.callbacks.ModelCheckpoint(
             dirpath='checkpoints/run_' + run_id,
             filename='{epoch}-{loss_train:.2f}-{loss_valid:.2f}',
-            save_last=True,
-            every_n_epochs=1,
+            save_last=False,
+            every_n_epochs=10,
         )
         trainer_kwargs['callbacks'] = checkpoint_callback
 
@@ -158,12 +161,10 @@ if __name__ == '__main__':
             pretrain_dataloader,
             pretest_dataloader,
         )
-
-    trainer = pl.Trainer(**trainer_kwargs)
-
-    print('Training model')
-    trainer.fit(
-        model,
-        train_dataloader,
-        test_dataloader,
-    )
+    else:
+        print('Finetuning model')
+        trainer.fit(
+            model,
+            train_dataloader,
+            test_dataloader,
+        )
