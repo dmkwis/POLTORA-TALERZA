@@ -27,6 +27,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', type=str, required=True)
+    parser.add_argument('--savefile', type=str, required=True)
+    parser.add_argument('--num_examples', type=int, required=True)
     args = parser.parse_args()
 
 
@@ -42,22 +44,30 @@ if __name__ == '__main__':
 
     provider = dataset.LyricsDatasetProvider()
     data = provider.get_dataset('finetune', training=False)
-    dataloader = dataset.DataLoader(data, batch_size=1)
+    dataloader = dataset.DataLoader(data, batch_size=1, shuffle=True)
 
     start_token = torch.tensor([[w2i[START_TOKEN]]])
 
     with torch.no_grad():
-        for x, y in dataloader:
-            output_sequence = start_token
-            for _ in range(len(y[0])):
-                output = model(
-                    x, 
-                    output_sequence,
-                    src_key_padding_mask=(x == w2i[PAD_TOKEN]),
-                    tgt_key_padding_mask=None
-                )
-                last_token = torch.argmax(output[:, -1, :], dim=1, keepdim=True)
-                output_sequence = torch.cat((output_sequence, last_token), dim=1)
-            print(translate_output(output_sequence[0]))
-            print()
-            a = input()
+        with open(args.savefile, 'w') as f:
+            i = 0
+            for x, y in dataloader:
+                if i == args.num_examples:
+                    break
+                print(i)
+                i += 1
+                output_sequence = start_token
+                for _ in range(len(y[0])):
+                    output = model(
+                        x, 
+                        output_sequence,
+                        src_key_padding_mask=(x == w2i[PAD_TOKEN]),
+                        tgt_key_padding_mask=None
+                    )
+                    last_token = torch.argmax(output[:, -1, :], dim=1, keepdim=True)
+                    output_sequence = torch.cat((output_sequence, last_token), dim=1)
+                f.write(translate_output(output_sequence[0]))
+                if i != args.num_examples:
+                    f.write("\n\n")
+                else:
+                    f.write("\n")

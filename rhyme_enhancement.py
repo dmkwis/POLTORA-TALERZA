@@ -8,6 +8,7 @@ from metrics.rhymedensitymetric import RhymeDensityMetric
 class RhymeData:
     def __init__(self, words: List[List[str]], idxs: Tuple[int, int], tokenizer):
         self.words = deepcopy(words)
+        n = len(self.words)
         self.idxs = idxs
         self.tokenizer = tokenizer
 
@@ -18,7 +19,7 @@ class RhymeData:
         self.words[self.idxs[0]][-1] = tokenizer.mask_token
 
         # Restore lines and sentence
-        self.lines = [' '.join(self.words[i]) for i in range(4)]
+        self.lines = [' '.join(self.words[i]) for i in range(n)]
         self.sentence = tokenizer.sep_token.join(self.lines)
 
         self.indexed_tokens = tokenizer.encode(self.sentence, add_special_tokens=True)
@@ -75,7 +76,8 @@ class RhymeEnhancer:
         # idxs represents which lines should rhyme
 
         lines = sentence.split('\n')
-        assert len(lines) == 4
+        n = len(lines)
+        assert n > 2
         words = [line.split() for line in lines]
 
         rhyme_data_first = RhymeData(words, idxs, self.tokenizer)
@@ -107,21 +109,40 @@ class RhymeEnhancer:
         else:
             words[idxs[1]][-1] = second_word
 
-        lines = [' '.join(words[i]) for i in range(4)]
+        lines = [' '.join(words[i]) for i in range(n)]
         sentence = '\n'.join(lines)
         return sentence
+
+class ExampleParser:
+    def __init__(self, file):
+        self.f = file
+        self.buffer = ""
+
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        while True:
+            line = self.f.readline()
+            if line == "":
+                raise StopIteration
+            elif line == "\n":
+                to_return = self.buffer
+                self.buffer = ""
+                return to_return[:-1]
+            else:
+                self.buffer += line
 
 
 if __name__ == '__main__':
     enhancer = RhymeEnhancer()
+    with open("results.txt", 'r') as src:
+        with open("enchanced.txt", 'w') as dst:
+            example_parser = ExampleParser(src)
+            for example in example_parser:
+                print('Before:')
+                print(example, "\n")
 
-    example = '''i aint supposed to be
-always gone with these hoes
-and ever be the first
-i be fucked up with you'''
-    print('Before:')
-    print(example)
-
-    example = enhancer.enhance(example, 50, (0, 3))
-    print('After:')
-    print(example)
+                example = enhancer.enhance(example, 50)
+                print('After:')
+                print(example, "\n")

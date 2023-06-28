@@ -1,4 +1,4 @@
-from abstractmetric import AbstractMetric
+from .abstractmetric import AbstractMetric
 from typing import List, Optional
 from itertools import chain
 import os
@@ -60,7 +60,7 @@ class RhymeDensityMetric(AbstractMetric):
 
     @staticmethod
     def compute_rhyme_length(w1: str, w2: str):
-        tmp_in_file="tmp_in.txt",
+        tmp_in_file="tmp_in.txt"
         tmp_out_file="tmp_out.txt"
         ipa_w1 = RhymeDensityMetric.generate_ipa(w1, tmp_in_file, tmp_out_file)
         ipa_w2 = RhymeDensityMetric.generate_ipa(w2, tmp_in_file, tmp_out_file)
@@ -70,7 +70,6 @@ class RhymeDensityMetric(AbstractMetric):
     
 
     def compute(prompt_text: List[str], generated_text: List[str]) -> float:
-        assert prompt_text is None, "Metric used only on generated text"
         processed_ipas = []
         for word in generated_text:
             ipa = RhymeDensityMetric.compute_ipa_representation(word)
