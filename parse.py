@@ -15,6 +15,7 @@ def parse_arguments() -> Dict[str, Union[int, str, float, bool]]:
                         help='size of embeddings in feed forward layer')
     parser.add_argument('--dropout', type=float, default=0.1,
                         help='dropout applied to layers (0 = no dropout)')
+    parser.add_argument('--load_path', type=str)
 
     # Training params
     parser.add_argument('--epochs', type=int, default=2,
