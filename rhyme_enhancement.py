@@ -125,6 +125,10 @@ class ExampleParser:
         while True:
             line = self.f.readline()
             if line == "":
+                if self.buffer != "":
+                    to_return = self.buffer
+                    self.buffer = ""
+                    return to_return[:-1]
                 raise StopIteration
             elif line == "\n":
                 to_return = self.buffer
@@ -144,5 +148,7 @@ if __name__ == '__main__':
                 print(example, "\n")
 
                 example = enhancer.enhance(example, 50)
+                dst.write(example)
+                dst.write("\n\n")
                 print('After:')
                 print(example, "\n")
