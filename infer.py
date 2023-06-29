@@ -29,6 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('--path', type=str, required=True)
     parser.add_argument('--savefile', type=str, required=True)
     parser.add_argument('--num_examples', type=int, required=True)
+    parser.add_argument('--manual', action='store_true', default=False)
     args = parser.parse_args()
 
 
@@ -57,6 +58,46 @@ if __name__ == '__main__':
                 print(i)
                 i += 1
                 output_sequence = start_token
+
+                if args.manual:
+
+                    # getting content words from the input
+                    print('Input 4 lines of content words:\n')
+                    words = [START_TOKEN]
+                    for i1 in range(4):
+                        line = input()
+                        line_words = line.split(' ')
+                        words.extend(line_words)
+                        if i1 < 3:
+                            words.append(NEWLINE_TOKEN)
+                    words.append(END_TOKEN)
+                    print(words)
+
+                    # reject too long sequences
+                    if len(words) > len(x[0]):
+                        print('Error: Too long sequence')
+                        continue
+
+                    while len(words) < len(x[0]):
+                        words.append(PAD_TOKEN)
+
+                    # reject examples with unknown words
+                    all_in_vocab = True
+                    for w in words:
+                        if w not in w2i:
+                            print('Error: unknown word:', w)
+                            all_in_vocab = False
+                            break
+                    if not all_in_vocab:
+                        continue
+
+                    # tokenize
+                    words = [w2i[w] for w in words]
+
+                    # make batched tensor
+                    x = torch.tensor([words])
+                    
+
                 for _ in range(len(y[0])):
                     output = model(
                         x, 
