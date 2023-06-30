@@ -5,7 +5,7 @@ import torch
 from model.transformer import TransformerEncoderDecoder
 from model.config import ModelConfig
 from train import TrainingModule
-
+from fileparser import FileParser
 
 # take the sequence of outputs from the transformer and convert it into a sentence
 def translate_output(transformer_outputs: torch.tensor) -> str:
@@ -30,6 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('--savefile', type=str, required=True)
     parser.add_argument('--num_examples', type=int, required=True)
     parser.add_argument('--manual', action='store_true', default=False)
+    parser.add_argument('--preset', type=str, default=False)
     args = parser.parse_args()
 
 
@@ -49,6 +50,10 @@ if __name__ == '__main__':
 
     start_token = torch.tensor([[w2i[START_TOKEN]]])
 
+
+    if args.preset:
+        parser = FileParser(open(args.preset, 'r'))
+
     with torch.no_grad():
         with open(args.savefile, 'w') as f:
             i = 0
@@ -59,13 +64,20 @@ if __name__ == '__main__':
                 i += 1
                 output_sequence = start_token
 
-                if args.manual:
-
+                if args.manual or args.preset:
                     # getting content words from the input
                     print('Input 4 lines of content words:\n')
                     words = [START_TOKEN]
+                    if args.preset:
+                        try:
+                            lines = next(parser).splitlines()
+                        except:
+                            break
                     for i1 in range(4):
-                        line = input()
+                        if args.preset:
+                            line = lines[i1]
+                        else:
+                            line = input()
                         line_words = line.split(' ')
                         words.extend(line_words)
                         if i1 < 3:

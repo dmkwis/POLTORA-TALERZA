@@ -1,4 +1,4 @@
-from abstractmetric import AbstractMetric
+from .abstractmetric import AbstractMetric
 from typing import List
 from itertools import chain
 

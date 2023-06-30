@@ -3,6 +3,8 @@ import random
 from copy import deepcopy
 from typing import List, Tuple
 from metrics.rhymedensitymetric import RhymeDensityMetric
+from fileparser import FileParser
+import argparse
 
 
 class RhymeData:
@@ -77,7 +79,8 @@ class RhymeEnhancer:
 
         lines = sentence.split('\n')
         n = len(lines)
-        assert n > 2
+        if n <= 2:
+            return sentence
         words = [line.split() for line in lines]
 
         rhyme_data_first = RhymeData(words, idxs, self.tokenizer)
@@ -113,36 +116,16 @@ class RhymeEnhancer:
         sentence = '\n'.join(lines)
         return sentence
 
-class ExampleParser:
-    def __init__(self, file):
-        self.f = file
-        self.buffer = ""
-
-    def __iter__(self):
-        return self
-    
-    def __next__(self):
-        while True:
-            line = self.f.readline()
-            if line == "":
-                if self.buffer != "":
-                    to_return = self.buffer
-                    self.buffer = ""
-                    return to_return[:-1]
-                raise StopIteration
-            elif line == "\n":
-                to_return = self.buffer
-                self.buffer = ""
-                return to_return[:-1]
-            else:
-                self.buffer += line
 
 
 if __name__ == '__main__':
     enhancer = RhymeEnhancer()
-    with open("results.txt", 'r') as src:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--rap_path', type=str, required=True)
+    args = parser.parse_args()
+    with open(args.rap_path, 'r') as src:
         with open("enchanced.txt", 'w') as dst:
-            example_parser = ExampleParser(src)
+            example_parser = FileParser(src)
             for example in example_parser:
                 print('Before:')
                 print(example, "\n")

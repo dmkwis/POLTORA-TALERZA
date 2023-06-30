@@ -10,5 +10,5 @@ class AbstractMetric(ABC):
     def compute(prompt_text: List[str], generated_text: List[List[str]]) -> float:
         pass
 
-    def get_name(self):
+    def __str__(self):
         return self.metric_name
