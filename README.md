@@ -45,3 +45,9 @@ alternatively use training script to easily change previously used parameters
 ```bash
 ./run_train.sh
 ```
+
+## Inference
+Run `infer.py` with appropriate parameters. This will generate `results.txt` file.
+
+## Rhyme enhancement
+Run `rhyme_enhancement.py`. This assumes that there exists the file named `results.txt` which contains generated examples. It prints the rhyme-enhanced examples into the screen.
