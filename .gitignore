@@ -3,7 +3,6 @@ data/
 lightning_logs/
 wandb/
 checkpoints/
-*.txt
 *.zip
 
 # Byte-compiled / optimized / DLL files
